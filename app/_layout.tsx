@@ -1,24 +1,41 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '../lib/authStore';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { token, isLoading, checkSession } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+  // Check device storage for a session when the app boots
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  // Route protection logic
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+   if (!token && !inAuthGroup) {
+      // Not logged in? Kick them to the login screen
+      router.replace('/(auth)/login');
+    } else if (token && inAuthGroup) {
+      // Already logged in? Push them to the root dashboard
+     router.replace('/(app)'); 
+    }
+  }, [token, isLoading, segments]);
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#3b82f6" />
+      </View>
+    );
+  }
+
+  // <Slot /> renders whatever the current route is (Login, Register, or the Main App)
+  return <Slot />;
 }

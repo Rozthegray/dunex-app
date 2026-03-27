@@ -1,48 +1,78 @@
 {
   "expo": {
-    "name": "dunex-mobile",
-    "slug": "dunex-mobile",
+    "name": "Dunex",
+    "slug": "dunex-markets",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "dunexmobile",
+    "scheme": "dunexmarkets",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dunex.markets",
+      "infoPlist": {
+        "NSContactsUsageDescription": "Dunex requires access to your contacts to facilitate secure network invitations and transfers.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.dunex.markets",
+      "permissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.SEND_SMS",
+        "android.permission.READ_SMS",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        "android.permission.RECORD_AUDIO"
+      ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#000000",
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Dunex requires access to your photos to upload secure payment receipts."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Dunex requires access to your contacts to facilitate secure network invitations and transfers."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2e4d4440-910d-47f9-9db8-8b70b400d5eb"
+      }
     }
   }
 }

@@ -29,35 +29,66 @@ export default function SecureSupportScreen() {
         setAttachment(result.assets[0]);
       }
     } catch (err) {
-      console.log("Secure Vault Document picker error", err);
+      console.log("Document picker error", err);
     }
   };
 
   const handleSendTicket = async () => {
     if (!subject.trim() || !message.trim() || !email.trim()) {
-      return Alert.alert('Validation Error', 'Email, Subject, and Details are required to lodge an inquiry.');
+      return Alert.alert('Validation Error', 'Email, Subject, and Message details are required.');
     }
 
     setIsSending(true);
     try {
+      let finalAttachmentUrl = null;
+
+      // 🚨 CLOUDINARY UPLOAD LOGIC 🚨
+      if (attachment) {
+        const data = new FormData();
+        data.append('file', {
+          uri: attachment.uri,
+          type: attachment.mimeType || 'image/jpeg',
+          name: attachment.name,
+        } as any);
+        
+        // 🚨 Replace these with your actual Cloudinary details!
+        data.append('upload_preset', 'dunex_support_uploads'); // Must be an "Unsigned" preset!
+        data.append('cloud_name', 'dkpicfvgv');
+
+        const cloudRes = await fetch('https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/auto/upload', {
+          method: 'POST',
+          body: data,
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        const cloudData = await cloudRes.json();
+        
+        if (cloudData.secure_url) {
+          finalAttachmentUrl = cloudData.secure_url; // This is the real web link!
+        } else {
+          throw new Error('Image upload failed');
+        }
+      }
+
+      // Now send the ticket to your backend with the REAL link
       const payload = {
         name,
         email,
         subject,
         message,
-        attachment_url: attachment ? attachment.name : null 
+        attachment_url: finalAttachmentUrl 
       };
 
       await apiClient.post('/chat/support/ticket', payload);
       
-      // Clear form and trigger the premium success modal
+      // Clear form and trigger the success modal
       setSubject('');
       setMessage('');
       setAttachment(null);
       setIsModalOpen(true);
 
     } catch (error) {
-      Alert.alert('Transmission Failure', 'Failed to route your dossier. Please try again.');
+      Alert.alert('Transmission Failure', 'Failed to send your message. Please try again or email support directly.');
     } finally {
       setIsSending(false);
     }
@@ -70,63 +101,65 @@ export default function SecureSupportScreen() {
         {/* HEADER */}
         <View style={styles.iconHeader}>
           <View style={styles.iconCircle}>
-            <Ionicons name="shield-checkmark" size={32} color="#D4AF37" />
+            <Ionicons name="chatbubbles" size={32} color="#D4AF37" />
           </View>
-          <Text style={styles.headerTitle}>SECURE INQUIRY PORTAL</Text>
-          <Text style={styles.headerSubtitle}>Lodge a formal dossier. A dedicated concierge will respond via encrypted wire.</Text>
+          <Text style={styles.headerTitle}>DUNEX SUPPORT</Text>
+          <Text style={styles.headerSubtitle}>
+            Send us a message below, or email us directly with attachments at <Text style={{fontWeight: 'bold', color: '#D4AF37'}}>support@dunexmarkets.com</Text>
+          </Text>
         </View>
 
-        {/* OBSIDIAN FORM CARD */}
+        {/* FORM CARD */}
         <View style={styles.form}>
-          <Text style={styles.label}>ACCOUNT HOLDER</Text>
+          <Text style={styles.label}>YOUR NAME</Text>
           <TextInput 
             style={styles.input} 
-            placeholder="e.g. Patrick Bateman" 
+            placeholder="e.g. John Doe" 
             placeholderTextColor="#636366" 
             value={name} 
             onChangeText={setName} 
-            editable={!user?.full_name} // Lock if already known
+            editable={!user?.full_name} 
           />
 
-          <Text style={styles.label}>REGISTERED EMAIL</Text>
+          <Text style={styles.label}>EMAIL ADDRESS</Text>
           <TextInput 
             style={styles.input} 
-            placeholder="client@dunexops.com" 
+            placeholder="your@email.com" 
             placeholderTextColor="#636366" 
             value={email} 
             onChangeText={setEmail} 
             keyboardType="email-address" 
             autoCapitalize="none" 
-            editable={!user?.email} // Lock if already known
+            editable={!user?.email} 
           />
 
-          <Text style={styles.label}>INQUIRY CLASSIFICATION</Text>
+          <Text style={styles.label}>WHAT DO YOU NEED HELP WITH?</Text>
           <TextInput 
             style={styles.input} 
-            placeholder="e.g. Tier 3 Limit Enhancement" 
+            placeholder="e.g. Help with a deposit" 
             placeholderTextColor="#636366" 
             value={subject} 
             onChangeText={setSubject} 
           />
           
-          <Text style={styles.label}>DOSSIER DETAILS</Text>
+          <Text style={styles.label}>MESSAGE DETAILS</Text>
           <TextInput 
             style={[styles.input, { height: 120, textAlignVertical: 'top', paddingTop: 16 }]} 
-            placeholder="Provide specific details regarding your inquiry..." 
+            placeholder="Please explain how we can assist you..." 
             placeholderTextColor="#636366" 
             multiline 
             value={message} 
             onChangeText={setMessage} 
           />
 
-          {/* SECURE ATTACHMENT VAULT */}
-          <Text style={styles.label}>SECURE ATTACHMENT</Text>
+          {/* ATTACHMENT UPLOAD */}
+          <Text style={styles.label}>ATTACH SCREENSHOT (OPTIONAL)</Text>
           <TouchableOpacity style={styles.attachBtn} onPress={pickDocument} activeOpacity={0.7}>
             <View style={styles.attachIconBox}>
-              <Ionicons name="document-lock" size={16} color="#D4AF37" />
+              <Ionicons name="image" size={16} color="#D4AF37" />
             </View>
             <Text style={[styles.attachText, attachment && { color: '#FFFFFF', fontWeight: 'bold' }]} numberOfLines={1}>
-              {attachment ? attachment.name : "Attach Encrypted File (Optional)"}
+              {attachment ? attachment.name : "Tap to select a picture"}
             </Text>
           </TouchableOpacity>
           
@@ -141,7 +174,7 @@ export default function SecureSupportScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={16} color="#05050A" style={{ marginRight: 10 }} />
-                <Text style={styles.btnText}>TRANSMIT DOSSIER</Text>
+                <Text style={styles.btnText}>SEND MESSAGE</Text>
               </>
             )}
           </TouchableOpacity>
@@ -150,23 +183,23 @@ export default function SecureSupportScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* INSTITUTIONAL SUCCESS MODAL */}
+      {/* FRIENDLY SUCCESS MODAL */}
       <Modal visible={isModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconCircle}>
-              <Ionicons name="checkmark-done" size={48} color="#D4AF37" />
+              <Ionicons name="checkmark-circle" size={48} color="#D4AF37" />
             </View>
-            <Text style={styles.modalTitle}>TRANSMISSION SECURED</Text>
+            <Text style={styles.modalTitle}>Message Sent!</Text>
             <Text style={styles.modalMessage}>
-              Your dossier has been securely routed to your dedicated Relationship Manager. You will be notified once a resolution protocol is initiated.
+              Thank you for reaching out. Our support team has received your message and will reply to your email address shortly.
             </Text>
             <TouchableOpacity 
               style={styles.modalBtn} 
               onPress={() => setIsModalOpen(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalBtnText}>ACKNOWLEDGE</Text>
+              <Text style={styles.modalBtnText}>CLOSE</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -177,13 +210,13 @@ export default function SecureSupportScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#05050A' }, // Pitch Black
+  safeArea: { flex: 1, backgroundColor: '#05050A' }, 
   container: { flex: 1, paddingHorizontal: 20 },
   
   iconHeader: { alignItems: 'center', marginTop: Platform.OS === 'ios' ? 20 : 40, marginBottom: 30 },
   iconCircle: { width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(212, 175, 55, 0.05)', justifyContent: 'center', alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.2)' },
   headerTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', letterSpacing: 1.5 },
-  headerSubtitle: { color: '#8E8E93', fontSize: 12, marginTop: 8, textAlign: 'center', fontWeight: '600', letterSpacing: 0.5, paddingHorizontal: 20, lineHeight: 18 },
+  headerSubtitle: { color: '#8E8E93', fontSize: 13, marginTop: 8, textAlign: 'center', fontWeight: '500', paddingHorizontal: 10, lineHeight: 20 },
   
   form: { backgroundColor: '#12121A', padding: 24, borderRadius: 24, borderWidth: 1, borderColor: '#1E1E28', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 10 },
   label: { color: '#8E8E93', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginBottom: 8, marginLeft: 4 },
@@ -197,12 +230,11 @@ const styles = StyleSheet.create({
   btn: { flexDirection: 'row', backgroundColor: '#D4AF37', paddingVertical: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
   btnText: { color: '#05050A', fontWeight: '900', fontSize: 13, letterSpacing: 1.5 },
 
-  // SUCCESS MODAL STYLES
   modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 5, 10, 0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { width: '100%', backgroundColor: '#12121A', borderRadius: 32, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: '#1E1E28', shadowColor: '#D4AF37', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.1, shadowRadius: 40, elevation: 20 },
   modalIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(212, 175, 55, 0.05)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(212, 175, 55, 0.2)' },
-  modalTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 1.5, marginBottom: 12, textAlign: 'center' },
-  modalMessage: { color: '#8E8E93', fontSize: 13, textAlign: 'center', lineHeight: 22, marginBottom: 32, fontWeight: '500' },
+  modalTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
+  modalMessage: { color: '#8E8E93', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 32, fontWeight: '500' },
   modalBtn: { backgroundColor: '#1E1E28', width: '100%', paddingVertical: 18, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#3A3A4A' },
   modalBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', letterSpacing: 1.5 },
 });

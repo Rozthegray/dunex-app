@@ -55,7 +55,7 @@ export default function SecureSupportScreen() {
         data.append('upload_preset', 'dunex_support_uploads'); // Must be an "Unsigned" preset!
         data.append('cloud_name', 'dkpicfvgv');
 
-        const cloudRes = await fetch('https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/auto/upload', {
+   const cloudRes = await fetch('https://api.cloudinary.com/v1_1/dkpicfvgv/auto/upload',  {
           method: 'POST',
           body: data,
           headers: { 'Content-Type': 'multipart/form-data' }

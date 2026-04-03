@@ -38,7 +38,15 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "asyncRoutes": {
+            "web": true,
+            "default": "development"
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {

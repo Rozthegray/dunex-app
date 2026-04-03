@@ -43,33 +43,40 @@ export default function SecureSupportScreen() {
       let finalAttachmentUrl = null;
 
       // 🚨 CLOUDINARY UPLOAD LOGIC 🚨
+    // 🚨 CLOUDINARY UPLOAD LOGIC 🚨
       if (attachment) {
         const data = new FormData();
-        data.append('file', {
-          uri: attachment.uri,
-          type: attachment.mimeType || 'image/jpeg',
-          name: attachment.name,
-        } as any);
         
-        // 🚨 Replace these with your actual Cloudinary details!
-        data.append('upload_preset', 'dunex_support_uploads'); // Must be an "Unsigned" preset!
+        // Handle the file differently depending on if you are testing on Web vs Mobile
+        if (Platform.OS === 'web') {
+          data.append('file', attachment.file); // Raw HTML5 File object for web browsers
+        } else {
+          data.append('file', {
+            uri: attachment.uri,
+            type: attachment.mimeType || 'image/jpeg',
+            name: attachment.name,
+          } as any); // Mobile format
+        }
+        
+        data.append('upload_preset', 'dunex_support_uploads'); 
         data.append('cloud_name', 'dkpicfvgv');
 
-   const cloudRes = await fetch('https://api.cloudinary.com/v1_1/dkpicfvgv/auto/upload',  {
+        const cloudRes = await fetch('https://api.cloudinary.com/v1_1/dkpicfvgv/auto/upload', {
           method: 'POST',
           body: data,
-          headers: { 'Content-Type': 'multipart/form-data' }
+          // NOTE: Do NOT set 'Content-Type' header here manually. Let the browser/fetch automatically set the multipart boundary!
         });
         
         const cloudData = await cloudRes.json();
         
         if (cloudData.secure_url) {
-          finalAttachmentUrl = cloudData.secure_url; // This is the real web link!
+          finalAttachmentUrl = cloudData.secure_url; 
         } else {
+          console.error("Cloudinary Error:", cloudData);
           throw new Error('Image upload failed');
         }
       }
-
+      
       // Now send the ticket to your backend with the REAL link
       const payload = {
         name,

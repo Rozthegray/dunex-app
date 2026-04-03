@@ -1,29 +1,20 @@
 // ============================================================
-//  GLOBAL TRADING SYSTEM TYPES
-//  Single source of truth for all data shapes across the app
+//  GLOBAL TRADING SYSTEM TYPES (UPDATED 4-BALANCE SYSTEM)
 // ============================================================
 
-// --- WALLET ---
-export interface MainWallet {
-  wallet_id: string;
-  cached_balance: number;
-  currency: string;
+export interface WalletBalances {
+  main: number;
+  profit: number;
+  bonus: number;
+  referral: number;
 }
 
-export interface SubWallet {
-  symbol: string;
-  balance: number;        // amount of crypto held
-  current_price: number;  // live USD price per unit
-  value_usd: number;      // balance * current_price
+export interface PortfolioSummary {
+  total_equity: number; // main + profit + bonus + referral
+  balances: WalletBalances;
 }
 
-export interface PortfolioData {
-  usd_balance: number;
-  total_value_usd: number; // usd_balance + sum of all sub-wallet USD values
-  assets: SubWallet[];
-}
-
-// --- MARKET ---
+// --- MARKET (Read-Only Ticker) ---
 export interface MarketAsset {
   symbol: string;
   name: string;
@@ -34,37 +25,11 @@ export interface MarketAsset {
   low_24h: number;
   volume: number;
   market_cap?: number;
-  logo?: string; // CMC logo URL
-}
-
-// --- TRADES ---
-export type TradeType = 'BUY' | 'SELL' | 'ACTIVE_START' | 'ACTIVE_CLOSE';
-export type TradeStatus = 'OPEN' | 'CLOSED' | 'completed' | 'failed';
-
-export interface TradeExecution {
-  id: string;
-  pair: string;
-  trade_type: TradeType;
-  amount_usd: number;
-  amount_crypto: number;
-  entry_price: number;
-  status: TradeStatus;
-  created_at: string;
-}
-
-// The in-memory representation of a live active trade (not persisted until close)
-export interface ActiveTrade {
-  id: string;
-  symbol: string;
-  trade_type: 'BUY' | 'SELL';
-  amount_usd: number;
-  crypto_wager: number;   // how much crypto was locked
-  entry_price: number;
-  expires_at: number;     // Date.now() + duration
+  logo?: string;
 }
 
 // --- TRANSACTIONS (Wallet Ledger) ---
-export type TransactionType = 'deposit' | 'withdrawal';
+export type TransactionType = 'deposit' | 'withdrawal' | 'admin_adjustment';
 export type TransactionStatus = 'pending' | 'completed' | 'rejected';
 
 export interface LedgerTransaction {
@@ -84,16 +49,4 @@ export interface PaymentMethod {
   method_type: 'crypto' | 'bank_transfer' | 'p2p_app';
   account_details: string;
   instructions?: string;
-}
-
-// --- API REQUEST/RESPONSE HELPERS ---
-export interface ExecuteTradePayload {
-  symbol: string;
-  amount_usd: number;
-  trade_type: 'BUY' | 'SELL';
-}
-
-export interface ActiveAdjustPayload {
-  symbol: string;
-  amount_crypto: number; // negative = debit (open), positive = credit (close)
 }

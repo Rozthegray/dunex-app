@@ -1,6 +1,6 @@
 /**
  * app/(app)/_layout.tsx
- * Root layout: bottom tab bar (Home · Wallet · Trade · Settings)
+ * Root layout: bottom tab bar (Home · Wallet · Market · Settings)
  * + slide-in drawer accessible from any header via hamburger icon.
  *
  * Design language: "Black Vault" — deep midnight backgrounds, 22-karat gold accents,
@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, G, Rect, Line } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { useAuthStore } from '../../lib/authStore';
 import { useNotifications } from '../../lib/useNotifications';
 
@@ -58,11 +58,12 @@ function IconWallet({ active }: { active: boolean }) {
   );
 }
 
-function IconTrade({ active }: { active: boolean }) {
+// Renamed from IconTrade to IconMarket
+function IconMarket({ active }: { active: boolean }) {
   const c = active ? T.gold : T.inactive;
   return (
     <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      {/* Candlestick chart */}
+      {/* Candlestick chart perfectly represents the Market ticker */}
       <Rect x="4" y="10" width="3" height="8" rx="0.5" fill={active ? T.gold : 'none'} stroke={c} strokeWidth="1.3" />
       <Line x1="5.5" y1="7" x2="5.5" y2="10" stroke={c} strokeWidth="1.3" strokeLinecap="round" />
       <Line x1="5.5" y1="18" x2="5.5" y2="20" stroke={c} strokeWidth="1.3" strokeLinecap="round" />
@@ -92,7 +93,7 @@ function IconSettings({ active }: { active: boolean }) {
 const TABS = [
   { name: 'index',     label: 'Home',    Icon: IconHome },
   { name: 'portfolio', label: 'Wallet',  Icon: IconWallet },
-  { name: 'trade',     label: 'Trade',   Icon: IconTrade },
+  { name: 'market',    label: 'Market',  Icon: IconMarket }, // 🚨 Updated Tab
   { name: 'settings',  label: 'Settings',Icon: IconSettings },
 ] as const;
 
@@ -224,6 +225,14 @@ function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
             {drawerItem('Deposit',  '/(app)/deposit')}
             {drawerItem('Withdraw', '/(app)/withdraw')}
 
+            {/* 🚨 NEW: Compliance Section */}
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>COMPLIANCE</Text>
+            {drawerItem('Complete My KYC', '/(app)/kyc', 'Identity Verification')}
+
+            {/* 🚨 NEW: Network Section */}
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>NETWORK</Text>
+            {drawerItem('Referral Program', '/(app)/referral', 'Earn affiliate rewards')}
+
             <Text style={[drawerStyles.section, { marginTop: 20 }]}>SUPPORT</Text>
             {drawerItem('Live Chat',    '/(app)/chat')}
             {drawerItem('Help Centre',  '/(app)/support')}
@@ -309,17 +318,21 @@ export default function AppLayout() {
       >
         <Tabs.Screen name="index"     options={{ title: 'Home' }} />
         <Tabs.Screen name="portfolio" options={{ title: 'Wallet' }} />
-        <Tabs.Screen name="trade"     options={{ title: 'Trade' }} />
+        <Tabs.Screen name="market"    options={{ title: 'Market' }} /> {/* 🚨 Updated from trade to market */}
         <Tabs.Screen name="settings"  options={{ title: 'Settings' }} />
 
         {/* Hidden screens (accessible via router.push) */}
         <Tabs.Screen name="deposit"         options={{ href: null, title: 'Deposit' }} />
         <Tabs.Screen name="withdraw"        options={{ href: null, title: 'Withdraw' }} />
         <Tabs.Screen name="deposit-history" options={{ href: null, title: 'History' }} />
-        <Tabs.Screen name="trade-history"   options={{ href: null, title: 'Trade History' }} />
         <Tabs.Screen name="chat"            options={{ href: null, title: 'Live Chat' }} />
         <Tabs.Screen name="support"         options={{ href: null, title: 'Support' }} />
-        <Tabs.Screen name="market"          options={{ href: null, title: 'Markets' }} />
+        
+        {/* 🚨 NEW: Hidden routes mapping to the new drawer links */}
+        <Tabs.Screen name="kyc"             options={{ href: null, title: 'KYC Verification' }} />
+        <Tabs.Screen name="referral"        options={{ href: null, title: 'Referral Program' }} />
+        
+        {/* Completely removed the old 'trade' and 'trade-history' routes */}
       </Tabs>
 
       <SideDrawer visible={drawerOpen} onClose={closeDrawer} />

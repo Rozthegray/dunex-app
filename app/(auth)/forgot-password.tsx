@@ -55,11 +55,11 @@ export default function ForgotPasswordScreen() {
           </View>
 
           <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleReset} disabled={loading} activeOpacity={0.8}>
-            {loading ? <ActivityIndicator color="#05050A" /> : <Text style={styles.buttonText}>TRANSMIT RECOVERY WIRE</Text>}
+            {loading ? <ActivityIndicator color="#05050A" /> : <Text style={styles.buttonText}>REQUEST RECOVERY CODE</Text>}
           </TouchableOpacity>
           
           <TouchableOpacity onPress={() => router.back()} style={styles.cancelBtn} disabled={loading} activeOpacity={0.7}>
-            <Text style={styles.cancelText}>ABORT PROTOCOL</Text>
+            <Text style={styles.cancelText}>CANCEL</Text>
           </TouchableOpacity>
 
         </View>

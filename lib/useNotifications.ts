@@ -1,12 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { Alert, Platform } from 'react-native';
-import { useAuthStore } from './authStore'; // Assuming you have your auth store here
+import { useAuthStore } from './authStore';
 
 const getWsUrl = (userId: string) => {
-  // 1. Local Development Fallback
+  // 1. Local Development Routing
   if (__DEV__) {
-    if (Platform.OS === 'android') return `wss://dunex-backend.onrender.com/api/v1/ws/notifications/${userId}`;
-    return `wss://dunex-backend.onrender.com/api/v1/ws/notifications/${userId}`;
+    // Android Emulator uses a special IP alias to reach localhost
+    if (Platform.OS === 'android') {
+      return `ws://10.0.2.2:8000/api/v1/ws/notifications/${userId}`;
+    }
+    // Web Browser and iOS Simulator use standard localhost/127.0.0.1
+    // Notice we use 'ws://' instead of 'wss://' for local testing!
+    return `ws://127.0.0.1:8000/api/v1/ws/notifications/${userId}`;
   }
   
   // 2. Official Production WebSockets Engine

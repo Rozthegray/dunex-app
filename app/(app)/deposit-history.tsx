@@ -30,8 +30,29 @@ const TX_CONFIG = {
 
 // ─── Transaction Card ─────────────────────────────────────────────────────────
 function TxCard({ item }: { item: LedgerTransaction }) {
-  const cfg = TX_CONFIG[item.transaction_type] ?? TX_CONFIG.deposit;
-  const statusColor = STATUS_COLORS[item.status] ?? '#64748b';
+  // Create a mutable copy of the config so we can override it based on wallet_type
+  let cfg = { ...(TX_CONFIG[item.transaction_type as keyof typeof TX_CONFIG] ?? TX_CONFIG.deposit) };
+
+  // 🚨 NEW: Special Wallet Logic
+  if (item.transaction_type === 'deposit') {
+    const wType = (item as any).wallet_type || 'main';
+    
+    if (wType === 'bonus') {
+      cfg.label = 'Bonus Received';
+      cfg.color = '#C9A84C'; // Gold
+      cfg.icon = 'gift-outline' as any;
+    } else if (wType === 'referral') {
+      cfg.label = 'Referral Reward';
+      cfg.color = '#3B82F6'; // Blue
+      cfg.icon = 'people-outline' as any;
+    } else if (wType === 'profit') {
+      cfg.label = 'Profit Distribution';
+      cfg.color = '#10b981'; // Green
+      cfg.icon = 'trending-up-outline' as any;
+    }
+  }
+
+  const statusColor = STATUS_COLORS[item.status as keyof typeof STATUS_COLORS] ?? '#64748b';
   const date = new Date(item.created_at);
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -69,28 +90,52 @@ function TxCard({ item }: { item: LedgerTransaction }) {
 
 // ─── Summary strip ─────────────────────────────────────────────────────────────
 function SummaryStrip({ txs }: { txs: LedgerTransaction[] }) {
+  // 1. REAL DEPOSITS: Strictly checks for the 'main' wallet type
   const deposited = txs
-    .filter(t => t.transaction_type === 'deposit' && t.status === 'completed')
+    .filter(t => t.transaction_type === 'deposit' && t.status === 'completed' && ((t as any).wallet_type || 'main') === 'main')
     .reduce((s, t) => s + t.amount, 0);
+
+  // 2. EARNINGS: Groups bonuses, profits, and referrals together
+  const earned = txs
+    .filter(t => t.transaction_type === 'deposit' && t.status === 'completed' && ['bonus', 'profit', 'referral'].includes((t as any).wallet_type))
+    .reduce((s, t) => s + t.amount, 0);
+
+  // 3. WITHDRAWALS
   const withdrawn = txs
     .filter(t => t.transaction_type === 'withdrawal' && t.status === 'completed')
     .reduce((s, t) => s + Math.abs(t.amount), 0);
 
   return (
     <View style={styles.summaryRow}>
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryLabel}>Total Deposited</Text>
-        <Text style={[styles.summaryValue, { color: '#10b981' }]}>
-          +${deposited.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+      
+      {/* Deposited Column */}
+      <View style={[styles.summaryItem, { alignItems: 'flex-start' }]}>
+        <Text style={styles.summaryLabel}>Deposited</Text>
+        <Text style={[styles.summaryValue, { color: '#10b981' }]} numberOfLines={1} adjustsFontSizeToFit>
+          +${deposited.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
       </View>
+
       <View style={styles.summaryDivider} />
-      <View style={[styles.summaryItem, { alignItems: 'flex-end' }]}>
-        <Text style={styles.summaryLabel}>Total Withdrawn</Text>
-        <Text style={[styles.summaryValue, { color: '#ef4444' }]}>
-          -${withdrawn.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+
+      {/* Earned Column */}
+      <View style={[styles.summaryItem, { alignItems: 'center' }]}>
+        <Text style={styles.summaryLabel}>Earned</Text>
+        <Text style={[styles.summaryValue, { color: '#3b82f6' }]} numberOfLines={1} adjustsFontSizeToFit>
+          +${earned.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
       </View>
+
+      <View style={styles.summaryDivider} />
+
+      {/* Withdrawn Column */}
+      <View style={[styles.summaryItem, { alignItems: 'flex-end' }]}>
+        <Text style={styles.summaryLabel}>Withdrawn</Text>
+        <Text style={[styles.summaryValue, { color: '#ef4444' }]} numberOfLines={1} adjustsFontSizeToFit>
+          -${withdrawn.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </Text>
+      </View>
+
     </View>
   );
 }
@@ -187,9 +232,8 @@ const styles = StyleSheet.create({
   },
   summaryItem: { flex: 1 },
   summaryDivider: { width: 1, height: 36, backgroundColor: '#1e293b' },
-  summaryLabel: { color: '#475569', fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  summaryValue: { fontSize: 18, fontWeight: '900' },
-
+ summaryLabel: { color: '#475569', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  summaryValue: { fontSize: 15, fontWeight: '900' },
   filterRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 16 },
   filterTab: {
     paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20,

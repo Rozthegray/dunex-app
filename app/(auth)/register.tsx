@@ -32,11 +32,11 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!fullName || !email || !password) {
-      triggerError('INCOMPLETE DOSSIER', 'All identity fields must be populated to proceed.');
+      triggerError('Missing Information', 'Please fill out your name, email, and password to continue.');
       return;
     }
     if (password.length < 8) {
-      triggerError('SECURITY REQUIREMENT', 'Your secure passphrase must be at least 8 characters long.');
+      triggerError('Password Too Short', 'For your security, your password must be at least 8 characters long.');
       return;
     }
 
@@ -58,8 +58,8 @@ export default function RegisterScreen() {
       
     } catch (error: any) {
       // Catch backend errors (e.g., "Email already registered")
-      const backendMessage = error.response?.data?.detail || 'System rejected the creation request. Please try again.';
-      triggerError('REGISTRATION FAILED', backendMessage);
+      const backendMessage = error.response?.data?.detail || 'We could not create your account. Please try again.';
+      triggerError('Registration Failed', backendMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -84,17 +84,17 @@ export default function RegisterScreen() {
               resizeMode="contain"
             />
             <Text style={styles.title}>DUNEX MARKETS</Text>
-            <Text style={styles.subtitle}>CLIENT ONBOARDING</Text>
+            <Text style={styles.subtitle}>CREATE YOUR ACCOUNT</Text>
           </View>
 
           {/* INPUTS */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>LEGAL NAME</Text>
+            <Text style={styles.label}>FULL NAME</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="person" size={16} color="#636366" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Enter full name (e.g. Patrick Bateman)"
+                placeholder="e.g. John Doe"
                 placeholderTextColor="#636366"
                 value={fullName}
                 onChangeText={setFullName}
@@ -108,7 +108,7 @@ export default function RegisterScreen() {
               <Ionicons name="mail" size={16} color="#636366" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="client@dunexops.com"
+                placeholder="your@email.com"
                 placeholderTextColor="#636366"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -119,7 +119,7 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>SECURE PASSPHRASE</Text>
+            <Text style={styles.label}>PASSWORD</Text>
             <View style={styles.inputWrapper}>
               <Ionicons name="lock-closed" size={16} color="#636366" style={styles.inputIcon} />
               <TextInput
@@ -154,16 +154,16 @@ export default function RegisterScreen() {
               <ActivityIndicator color="#05050A" />
             ) : (
               <>
-                <Text style={styles.loginButtonText}>ESTABLISH ACCOUNT</Text>
-                <Ionicons name="shield-checkmark" size={16} color="#05050A" />
+                <Text style={styles.loginButtonText}>CREATE ACCOUNT</Text>
+                <Ionicons name="arrow-forward" size={16} color="#05050A" />
               </>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>ALREADY REGISTERED? </Text>
+            <Text style={styles.footerText}>ALREADY HAVE AN ACCOUNT? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/login' as any)} activeOpacity={0.7}>
-              <Text style={styles.registerText}>RETURN TO LOGIN</Text>
+              <Text style={styles.registerText}>LOG IN</Text>
             </TouchableOpacity>
           </View>
           
@@ -175,19 +175,19 @@ export default function RegisterScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconContainer}>
-              <Ionicons name="mail-unread" size={40} color="#D4AF37" />
+              <Ionicons name="checkmark-circle" size={40} color="#D4AF37" />
             </View>
-            <Text style={styles.modalTitle}>ACCOUNT CREATED</Text>
+            <Text style={styles.modalTitle}>Account Created!</Text>
             <Text style={styles.modalText}>
-              Your institutional dossier has been successfully generated. We have dispatched an onboarding transmission to your email.
+              Welcome to Dunex Markets. Your account has been successfully set up, and we just sent a welcome email to your inbox.
             </Text>
             <Text style={styles.modalSubText}>
-              To activate your vault, you must complete the identity verification process.
+              To keep your money safe and start using your account, we need to verify your identity next.
             </Text>
             
             <TouchableOpacity style={styles.modalButton} onPress={handleProceedToKYC} activeOpacity={0.8}>
-              <Text style={styles.modalButtonText}>PROCEED TO KYC</Text>
-              <Ionicons name="arrow-forward" size={16} color="#05050A" />
+              <Text style={styles.modalButtonText}>VERIFY MY IDENTITY</Text>
+              <Ionicons name="shield-checkmark" size={16} color="#05050A" />
             </TouchableOpacity>
           </View>
         </View>
@@ -206,7 +206,7 @@ export default function RegisterScreen() {
             </Text>
             
             <TouchableOpacity style={styles.errorButton} onPress={() => setShowErrorModal(false)} activeOpacity={0.8}>
-              <Text style={styles.errorButtonText}>ACKNOWLEDGE</Text>
+              <Text style={styles.errorButtonText}>CLOSE</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -239,7 +239,6 @@ const styles = StyleSheet.create({
   footerText: { color: '#636366', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   registerText: { color: '#D4AF37', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
 
-  // 🚨 MODAL STYLES (Success & Error)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(5, 5, 10, 0.85)',

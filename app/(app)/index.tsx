@@ -301,7 +301,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ── 5. Activity Ledger ─────────────────────────────────────────────── */}
+     {/* ── 5. Activity Ledger ─────────────────────────────────────────────── */}
       <View style={{ marginTop: 28, marginBottom: 36 }}>
         <SectionRow title="Activity Ledger" onSeeAll={() => router.push('/(app)/deposit-history' as any)} />
         <View style={s.activityList}>
@@ -310,14 +310,43 @@ export default function HomeScreen() {
           ) : (
             recentTx.map((tx, idx) => {
               const isDepo = tx.transaction_type === 'deposit';
+              
+              // 🚨 Determine custom display logic based on wallet_type
+              let displayTitle = isDepo ? 'Deposit' : 'Withdrawal';
+              let iconColor = isDepo ? T.green : T.red;
+              let iconBgColor = isDepo ? T.greenDim : T.redDim;
+              let iconName = isDepo ? 'arrow-down' : 'arrow-up';
+
+              if (isDepo) {
+                // If the backend doesn't send wallet_type, default to 'main'
+                const wType = (tx as any).wallet_type || 'main'; 
+                
+                if (wType === 'bonus') {
+                  displayTitle = 'Bonus Received';
+                  iconColor = T.gold;
+                  iconBgColor = T.goldDim;
+                  iconName = 'gift';
+                } else if (wType === 'referral') {
+                  displayTitle = 'Referral Reward';
+                  iconColor = T.blue;
+                  iconBgColor = T.blueDim;
+                  iconName = 'people';
+                } else if (wType === 'profit') {
+                  displayTitle = 'Profit Distribution';
+                  iconColor = T.green;
+                  iconBgColor = T.greenDim;
+                  iconName = 'trending-up';
+                }
+              }
+
               return (
                 <View key={tx.id} style={[s.txRow, idx === recentTx.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={[s.txIconBox, { backgroundColor: isDepo ? T.greenDim : T.redDim }]}>
-                    <Ionicons name={isDepo ? 'arrow-down' : 'arrow-up'} size={18} color={isDepo ? T.green : T.red} />
+                  <View style={[s.txIconBox, { backgroundColor: iconBgColor }]}>
+                    <Ionicons name={iconName as any} size={18} color={iconColor} />
                   </View>
 
                   <View style={s.txMid}>
-                    <Text style={s.txType}>{isDepo ? 'Deposit' : 'Withdrawal'}</Text>
+                    <Text style={s.txType}>{displayTitle}</Text>
                     <Text style={s.txDate}>{new Date(tx.created_at).toLocaleDateString()}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

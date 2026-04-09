@@ -50,10 +50,9 @@ export default function RegisterScreen() {
         referral_code: referralCode,
       });
       
-      // 2. Automatically log them in in the background
-      await login(email, password);
+      // 🚨 REMOVE the await login(email, password) from here!
       
-      // 3. Trigger the Success Modal
+      // 2. Trigger the Success Modal
       setShowSuccessModal(true);
       
     } catch (error: any) {
@@ -65,10 +64,13 @@ export default function RegisterScreen() {
     }
   };
 
-  const handleProceedToKYC = () => {
+const handleProceedToKYC = async () => {
     setShowSuccessModal(false);
-    // Push them into the KYC screen after acknowledging the modal
-    router.replace('/(app)/kyc' as any); 
+    
+    // 🚨 NOW we log them in! 
+    // The Layout will instantly detect the token, check their KYC status, 
+    // and seamlessly teleport them to the kyc.tsx screen for you!
+    await login(email, password);
   };
 
   return (

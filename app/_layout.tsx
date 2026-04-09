@@ -4,7 +4,8 @@ import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '../lib/authStore';
 
 export default function RootLayout() {
-  const { token, isLoading, checkSession } = useAuthStore();
+  // 🚨 1. Pull the 'user' object from the store so we can read their status
+  const { token, user, isLoading, checkSession } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
 
@@ -19,19 +20,28 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-   if (!token && !inAuthGroup) {
+    if (!token && !inAuthGroup) {
       // Not logged in? Kick them to the login screen
       router.replace('/(auth)/login');
     } else if (token && inAuthGroup) {
-      // Already logged in? Push them to the root dashboard
-     router.replace('/(app)'); 
+      
+      // 🚨 2. THE KYC BOUNCER
+      // If they have a token but no KYC, route them to the KYC screen!
+      if (user && (!user.kyc_status || user.kyc_status === 'unverified')) {
+        router.replace('/(app)/kyc');
+      } else {
+        // Otherwise, they are good to go to the dashboard
+        router.replace('/(app)'); 
+      }
+      
     }
-  }, [token, isLoading, segments]);
+  }, [token, user, isLoading, segments]);
 
   if (isLoading) {
+    // (I updated your loading colors to match your dark/gold Dunex branding!)
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+      <View style={{ flex: 1, backgroundColor: '#05050A', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#D4AF37" />
       </View>
     );
   }

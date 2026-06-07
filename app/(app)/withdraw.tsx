@@ -37,10 +37,12 @@ export default function WithdrawScreen() {
     setShowErrorModal(true);
   };
 
+// Inside your WithdrawScreen.tsx component
+
   useEffect(() => {
-    // Fetch Main Balance
+    // 🚨 FIX: Fetch Total Equity (combined wallets) instead of just the main balance
     apiClient.get('/wallet/summary')
-      .then(res => setWalletBalance(res.data.balances.main))
+      .then(res => setWalletBalance(res.data.total_equity)) 
       .catch(() => {});
       
     // Fetch saved payout routes
@@ -49,6 +51,7 @@ export default function WithdrawScreen() {
       .catch(() => setPayoutRoutes([]));
   }, []);
 
+  
   const handleNext = () => {
     if (step === 1) {
       const val = parseFloat(amount);

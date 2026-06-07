@@ -1,6 +1,7 @@
 // dunex-mobile/lib/authStore.ts
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { apiClient } from './apiClient';
 
 interface AuthState {
@@ -18,12 +19,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true, 
 
- login: async (email, password) => {
+  login: async (email, password) => {
     try {
       set({ isLoading: true });
       
-      // --- THE INSTITUTIONAL DATA PACKAGER ---
-      // This forces the data into the strict URL-encoded format FastAPI expects
       const params = new URLSearchParams();
       params.append('username', email);
       params.append('password', password);
@@ -57,14 +56,31 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkSession: async () => {
     try {
-      const token = await AsyncStorage.getItem('user_token');
+      let token = await AsyncStorage.getItem('user_token');
+
+      // 🚨 CRITICAL FIX: Intercept impersonation token directly in the store!
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const impersonateToken = urlParams.get('impersonate_token');
+        
+        if (impersonateToken) {
+          console.log("[AuthStore] Impersonation Token Intercepted!");
+          token = impersonateToken;
+          
+          // Use AsyncStorage to properly set the "user_token" key
+          await AsyncStorage.setItem('user_token', token);
+          
+          // Clean the URL so it looks completely normal
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+
       if (token) {
         console.log("[AuthStore] Token found, verifying session...");
         const userRes = await apiClient.get('auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
         
-        // 🛑 DEBUG: Check if userRes.data contains 'id' or is it inside another object?
         console.log("[AuthStore] Session Restored:", userRes.data);
         set({ token, user: userRes.data, isLoading: false });
       } else {

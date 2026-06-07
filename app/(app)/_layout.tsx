@@ -1,9 +1,12 @@
 /**
  * app/(app)/_layout.tsx
- * Root layout: Includes Bottom Tab Bar + Slide-in Drawer.
- * 🚨 UPDATED: Added Impersonation Token Interceptor for Admin cross-domain access.
+ * Root layout: bottom tab bar (Home · Wallet · Market · Settings)
+ * + slide-in drawer accessible from any header via hamburger icon.
+ *
+ * Design language: "Black Vault" — deep midnight backgrounds, 22-karat gold accents,
+ * precision geometric icons, zero cartoon fluff.
  */
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions,
   Modal, TouchableWithoutFeedback, SafeAreaView, StatusBar,
@@ -31,6 +34,7 @@ const T = {
 };
 
 // ─── SVG Tab Icons — precision line-art ───────────────────────────────────────
+
 function IconHome({ active }: { active: boolean }) {
   const c = active ? T.gold : T.inactive;
   return (
@@ -83,6 +87,7 @@ function IconSettings({ active }: { active: boolean }) {
 }
 
 // ─── Custom Bottom Tab Bar ────────────────────────────────────────────────────
+
 const TABS = [
   { name: 'index',     label: 'Home',    Icon: IconHome },
   { name: 'portfolio', label: 'Wallet',  Icon: IconWallet },
@@ -92,16 +97,24 @@ const TABS = [
 
 function BottomTabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
+
   return (
     <View style={[tabStyles.container, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       <View style={tabStyles.inner}>
         {TABS.map((tab, idx) => {
           const active = state.index === idx;
           return (
-            <TouchableOpacity key={tab.name} style={tabStyles.tab} onPress={() => navigation.navigate(tab.name)} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={tab.name}
+              style={tabStyles.tab}
+              onPress={() => navigation.navigate(tab.name)}
+              activeOpacity={0.7}
+            >
               {active && <View style={tabStyles.activePill} />}
               <tab.Icon active={active} />
-              <Text style={[tabStyles.label, active && tabStyles.labelActive]}>{tab.label}</Text>
+              <Text style={[tabStyles.label, active && tabStyles.labelActive]}>
+                {tab.label}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -111,55 +124,185 @@ function BottomTabBar({ state, navigation }: any) {
 }
 
 const tabStyles = StyleSheet.create({
-  container: { backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 10, paddingHorizontal: 8 },
+  container: {
+    backgroundColor: T.surface,
+    borderTopWidth: 1,
+    borderTopColor: T.border,
+    paddingTop: 10,
+    paddingHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 20,
+  },
   inner: { flexDirection: 'row' },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, position: 'relative' },
-  activePill: { position: 'absolute', top: -10, width: 32, height: 2, borderRadius: 1, backgroundColor: T.gold },
+  tab: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 6, position: 'relative',
+  },
+  activePill: {
+    position: 'absolute',
+    top: -10, width: 32, height: 2, borderRadius: 1,
+    backgroundColor: T.gold,
+  },
   label: { fontSize: 10.5, marginTop: 5, color: T.inactive, fontWeight: '500', letterSpacing: 0.3 },
   labelActive: { color: T.gold, fontWeight: '700' },
 });
 
-// ─── Drawer Component (Truncated for brevity) ──────────────────────────────────
-// [Existing SideDrawer component logic here...]
+// ─── Slide Drawer ─────────────────────────────────────────────────────────────
+
 const DRAWER_W = Math.min(W * 0.78, 320);
 
+function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const slideAnim = useRef(new Animated.Value(-DRAWER_W)).current;
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(slideAnim, { toValue: 0, damping: 20, mass: 0.8, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(slideAnim, { toValue: -DRAWER_W, duration: 220, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [visible]);
+
+  const drawerItem = (label: string, route: string, subtitle?: string) => (
+    <TouchableOpacity
+      key={route}
+      style={drawerStyles.item}
+      onPress={() => { onClose(); setTimeout(() => router.push(route as any), 250); }}
+    >
+      <View>
+        <Text style={drawerStyles.itemLabel}>{label}</Text>
+        {subtitle && <Text style={drawerStyles.itemSub}>{subtitle}</Text>}
+      </View>
+      <Text style={drawerStyles.arrow}>›</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      <Animated.View style={[drawerStyles.overlay, { opacity: fadeAnim }]}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={{ flex: 1 }} />
+        </TouchableWithoutFeedback>
+      </Animated.View>
+
+      <Animated.View style={[drawerStyles.drawer, { transform: [{ translateX: slideAnim }] }]}>
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Drawer header */}
+          <View style={drawerStyles.header}>
+            <View style={drawerStyles.avatarRing}>
+              <Text style={drawerStyles.avatarInitial}>
+                {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={drawerStyles.userName}>{user?.full_name || 'Trader'}</Text>
+              <Text style={drawerStyles.userEmail} numberOfLines={1}>{user?.email}</Text>
+            </View>
+          </View>
+
+          <View style={drawerStyles.divider} />
+
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={drawerStyles.section}>ACCOUNT</Text>
+            {drawerItem('Dashboard',        '/(app)/')}
+            {drawerItem('Portfolio',        '/(app)/portfolio', 'Sub-wallets & assets')}
+            {drawerItem('Transaction History','/(app)/deposit-history')}
+
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>FUNDS</Text>
+            {drawerItem('Deposit',  '/(app)/deposit')}
+            {drawerItem('Withdraw', '/(app)/withdraw')}
+
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>COMPLIANCE</Text>
+            {drawerItem('Complete My KYC', '/(app)/kyc', 'Identity Verification')}
+
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>NETWORK</Text>
+            {drawerItem('Referral Program', '/(app)/referral', 'Earn affiliate rewards')}
+
+            <Text style={[drawerStyles.section, { marginTop: 20 }]}>SUPPORT</Text>
+            {drawerItem('Live Chat',    '/(app)/chat')}
+            {drawerItem('Help Centre',  '/(app)/support')}
+          </ScrollView>
+
+          <View style={drawerStyles.divider} />
+          <TouchableOpacity style={drawerStyles.logoutBtn} onPress={() => { onClose(); logout(); }}>
+            <Text style={drawerStyles.logoutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const drawerStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)' },
+  drawer: {
+    position: 'absolute', left: 0, top: 0, bottom: 0,
+    width: DRAWER_W, backgroundColor: T.surface,
+    borderRightWidth: 1, borderRightColor: T.border,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 22, paddingTop: 30 },
+  avatarRing: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: T.goldDim, borderWidth: 1.5, borderColor: T.gold,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarInitial: { color: T.gold, fontSize: 22, fontWeight: '700' },
+  userName:  { color: T.text, fontSize: 16, fontWeight: '700' },
+  userEmail: { color: T.muted, fontSize: 12, marginTop: 2 },
+  divider:   { height: 1, backgroundColor: T.border, marginHorizontal: 0 },
+  section:   { color: T.muted, fontSize: 10, fontWeight: '700', letterSpacing: 1.5, paddingHorizontal: 22, paddingTop: 20, paddingBottom: 8 },
+  item: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 22, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(26,37,64,0.5)',
+  },
+  itemLabel: { color: T.text, fontSize: 15, fontWeight: '500' },
+  itemSub:   { color: T.muted, fontSize: 11, marginTop: 2 },
+  arrow:     { color: T.muted, fontSize: 20, fontWeight: '300' },
+  logoutBtn: { padding: 22, paddingBottom: 10 },
+  logoutText: { color: '#EF4444', fontSize: 15, fontWeight: '700' },
+});
+
+// ─── Drawer Context — lets any screen open/close it ──────────────────────────
+export const DrawerContext = React.createContext({
+  openDrawer: () => {},
+  closeDrawer: () => {},
+});
+
 // ─── Root Layout ──────────────────────────────────────────────────────────────
+
 export default function AppLayout() {
   useNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const router = useRouter();
-  const { setToken } = useAuthStore(); // Ensure your store has this method
 
-  // 🚨 IMPERSONATION INTERCEPTOR
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const impersonateToken = urlParams.get('impersonate_token');
-      
-      if (impersonateToken) {
-        // 1. Persist the admin-generated token
-        localStorage.setItem('access_token', impersonateToken);
-        setToken?.(impersonateToken); 
-        
-        // 2. Clean URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // 3. Force entry
-        router.replace('/(app)/portfolio');
-      }
-    }
-  }, []);
+  const openDrawer  = useCallback(() => setDrawerOpen(true),  []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   return (
-    <DrawerContext.Provider value={{ openDrawer: () => setDrawerOpen(true), closeDrawer: () => setDrawerOpen(false) }}>
+    <DrawerContext.Provider value={{ openDrawer, closeDrawer }}>
       <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+
       <Tabs
         tabBar={(props) => <BottomTabBar {...props} />}
         screenOptions={{
-          headerStyle: { backgroundColor: T.surface, borderBottomWidth: 1, borderBottomColor: T.border } as any,
+          headerStyle: { backgroundColor: T.surface, borderBottomWidth: 1, borderBottomColor: T.border, elevation: 0, shadowOpacity: 0 } as any,
           headerTintColor: T.text,
+          headerTitleStyle: { fontWeight: '700', fontSize: 17, color: T.text },
           headerLeft: () => (
-            <TouchableOpacity onPress={() => setDrawerOpen(true)} style={{ marginLeft: 18 }}>
+            <TouchableOpacity
+              onPress={openDrawer}
+              style={{ marginLeft: 18, padding: 4 }}
+            >
               <Svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                 <Line x1="2" y1="5" x2="20" y2="5" stroke={T.text} strokeWidth="1.7" strokeLinecap="round" />
                 <Line x1="2" y1="11" x2="14" y2="11" stroke={T.gold} strokeWidth="1.7" strokeLinecap="round" />
@@ -169,14 +312,23 @@ export default function AppLayout() {
           ),
         }}
       >
-        <Tabs.Screen name="index" options={{ title: 'Home' }} />
+        <Tabs.Screen name="index"     options={{ title: 'Home' }} />
         <Tabs.Screen name="portfolio" options={{ title: 'Wallet' }} />
-        <Tabs.Screen name="market" options={{ title: 'Market' }} />
-        <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+        <Tabs.Screen name="market"    options={{ title: 'Market' }} />
+        <Tabs.Screen name="settings"  options={{ title: 'Settings' }} />
+
+        {/* Hidden screens (accessible via router.push) */}
+        <Tabs.Screen name="deposit"         options={{ href: null, title: 'Deposit' }} />
+        <Tabs.Screen name="withdraw"        options={{ href: null, title: 'Withdraw' }} />
+        <Tabs.Screen name="deposit-history" options={{ href: null, title: 'History' }} />
+        <Tabs.Screen name="chat"            options={{ href: null, title: 'Live Chat' }} />
+        <Tabs.Screen name="support"         options={{ href: null, title: 'Support' }} />
+        
+        <Tabs.Screen name="kyc"             options={{ href: null, title: 'KYC Verification' }} />
+        <Tabs.Screen name="referral"        options={{ href: null, title: 'Referral Program' }} />
       </Tabs>
-      {/* SideDrawer component call here */}
+
+      <SideDrawer visible={drawerOpen} onClose={closeDrawer} />
     </DrawerContext.Provider>
   );
 }
-
-export const DrawerContext = React.createContext({ openDrawer: () => {}, closeDrawer: () => {} });

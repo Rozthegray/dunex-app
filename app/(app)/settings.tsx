@@ -24,20 +24,23 @@ const T = {
   muted:   '#636366',
   dim:     '#8E8E93',
 };
-
 const CURRENCIES = ['USD', 'GBP', 'EUR', 'BTC', 'USDT'];
 
 export default function SettingsScreen() {
   const { user, setUser } = useAuthStore();
-
+  
   // ─── State Management ───
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [baseCurrency, setBaseCurrency] = useState(user?.base_currency || 'USD');
   const [avatarUri, setAvatarUri] = useState(user?.avatar_url || '');
   
+  // 🚨 THE FIX: Force the avatar to sync if the user object updates from the background
+  useEffect(() => {
+    if (user?.avatar_url) setAvatarUri(user.avatar_url);
+  }, [user?.avatar_url]);
+  
   const [savingProfile, setSavingProfile] = useState(false);
   const [changingPwd, setChangingPwd] = useState(false);
-
   const [is2FA, setIs2FA] = useState(user?.two_fa_enabled || false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -45,7 +48,6 @@ export default function SettingsScreen() {
   // ─── Modal State ───
   const [modalVisible, setModalVisible] = useState(false);
   const [modalConfig, setModalConfig] = useState({ type: 'success', title: '', message: '' });
-
   const showModal = (type: 'success' | 'error', title: string, message: string) => {
     setModalConfig({ type, title, message });
     setModalVisible(true);
@@ -91,20 +93,22 @@ export default function SettingsScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
     if (result.canceled) return;
     const uri = result.assets[0].uri;
+    
+    // Optimistic UI update
     setAvatarUri(uri);
+    
     const form = new FormData();
     form.append('file', { uri, name: 'avatar.jpg', type: 'image/jpeg' } as any);
     try {
       const res = await apiClient.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
       setUser({ ...user, avatar_url: res.data.avatar_url });
     } catch (_) { 
-      showModal('error', 'UPLOAD FAILED', 'Could not upload profile picture.'); 
+      showModal('error', 'UPLOAD FAILED', 'Could not upload profile picture.');
     }
   };
 
   // ─── Security Logic ───
   const toggle2FA = async (value: boolean) => {
-    // Kept basic alerts here since 2FA requires complex prompt inputs
     if (value) {
       try {
         await apiClient.post('/users/enable-2fa');
@@ -119,7 +123,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // 🚨 FIXED: Password Change Logic
   const changePassword = async () => {
     if (!oldPassword || !newPassword) {
       return showModal('error', 'REQUIRED FIELDS', 'Please enter your current and new passphrase.');
@@ -138,13 +141,12 @@ export default function SettingsScreen() {
       setOldPassword(''); 
       setNewPassword('');
     } catch (e: any) { 
-      showModal('error', 'AUTHENTICATION FAILED', e.response?.data?.detail || 'Failed to change password. Ensure your current password is correct.'); 
+      showModal('error', 'AUTHENTICATION FAILED', e.response?.data?.detail || 'Failed to change password. Ensure your current password is correct.');
     } finally {
       setChangingPwd(false);
     }
   };
 
-  // ─── Payout Destinations Logic ───
   const deletePayoutAccount = async (id: string) => {
     try {
       await apiClient.delete(`/users/payout-accounts/${id}`);
@@ -155,11 +157,9 @@ export default function SettingsScreen() {
   const addPayoutAccount = async () => {
     if (payoutType === 'bank' && (!bankName || !accountNumber)) return showModal('error', 'MISSING DATA', 'Please enter all bank details.');
     if (payoutType === 'crypto' && !cryptoAddress) return showModal('error', 'MISSING DATA', 'Please enter your wallet address.');
-
     const payload = payoutType === 'bank' 
       ? { type: 'bank', label: bankName, details: accountNumber }
       : { type: 'crypto', label: `${cryptoNetwork} Wallet`, details: cryptoAddress };
-
     try {
       await apiClient.post('/users/payout-accounts', payload);
       setShowAddPayout(false);
@@ -167,7 +167,7 @@ export default function SettingsScreen() {
       loadPayoutAccounts();
       showModal('success', 'ROUTE SECURED', 'Your new withdrawal destination has been saved.');
     } catch (e: any) { 
-      showModal('error', 'OPERATION REJECTED', e.response?.data?.detail || 'Could not save the destination.'); 
+      showModal('error', 'OPERATION REJECTED', e.response?.data?.detail || 'Could not save the destination.');
     }
   };
 
@@ -181,12 +181,24 @@ export default function SettingsScreen() {
           {/* ─── PROFILE SECTION ─── */}
           <Text style={st.sectionTitle}>PERSONAL PROFILE</Text>
           <View style={st.card}>
+    
             <TouchableOpacity style={st.avatarRow} onPress={pickAvatar}>
-              {avatarUri ? <Image source={{ uri: avatarUri }} style={st.avatar} /> : <View style={st.avatarPlaceholder}><Ionicons name="person" size={36} color={T.dim} /></View>}
+              {/* 🚨 THE FIX: Replaced the boring icon with their beautiful initial matching the sidebar */}
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={st.avatar} />
+              ) : (
+                <View style={st.avatarPlaceholder}>
+                  <Text style={{color: T.gold, fontSize: 36, fontWeight: '800'}}>
+                    {(user?.full_name || user?.email || 'U')[0].toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={st.avatarBadge}><Ionicons name="camera" size={14} color={T.bg} /></View>
             </TouchableOpacity>
+            
             <Text style={st.label}>FULL NAME</Text>
             <TextInput style={st.input} value={fullName} onChangeText={setFullName} placeholder="Enter your legal name" placeholderTextColor={T.muted} />
+            
             <Text style={st.label}>DEFAULT CURRENCY</Text>
             <View style={st.currencyRow}>
               {CURRENCIES.map(c => (
@@ -204,7 +216,7 @@ export default function SettingsScreen() {
           <Text style={st.sectionTitle}>WITHDRAWAL DESTINATIONS</Text>
           <View style={st.card}>
             <Text style={{ color: T.muted, fontSize: 13, marginBottom: 16 }}>Configure where you want to receive your profits.</Text>
-            
+       
             {payoutAccounts.length === 0 && <Text style={st.emptyText}>No withdrawal routes saved.</Text>}
             
             {payoutAccounts.map(m => (
@@ -285,13 +297,8 @@ export default function SettingsScreen() {
             <Text style={st.label}>NEW PASSPHRASE</Text>
             <TextInput style={st.input} value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="Must be 8+ characters" placeholderTextColor={T.muted} />
             
-            {/* 🚨 FIXED: Password Loading Button */}
             <TouchableOpacity style={st.btnOutline} onPress={changePassword} disabled={changingPwd}>
-              {changingPwd ? (
-                <ActivityIndicator color={T.text} />
-              ) : (
-                <Text style={st.btnOutlineText}>Change Passphrase</Text>
-              )}
+              {changingPwd ? <ActivityIndicator color={T.text} /> : <Text style={st.btnOutlineText}>Change Passphrase</Text>}
             </TouchableOpacity>
           </View>
 
@@ -351,7 +358,7 @@ const st = StyleSheet.create({
   
   avatarRow: { alignSelf: 'center', marginBottom: 28 },
   avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: T.gold },
-  avatarPlaceholder: { width: 96, height: 96, borderRadius: 48, backgroundColor: T.card, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: T.border },
+  avatarPlaceholder: { width: 96, height: 96, borderRadius: 48, backgroundColor: T.card, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: T.goldDim },
   avatarBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: T.gold, width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: T.surface },
   
   label: { color: T.dim, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10, marginTop: 20 },

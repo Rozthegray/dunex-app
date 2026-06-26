@@ -40,6 +40,7 @@ const TypingDots = () => {
     anims.forEach(a => a.start());
     return () => anims.forEach(a => a.stop());
   }, []);
+  
   return (
     <View style={{ flexDirection: 'row', gap: 5, paddingVertical: 2 }}>
       {dots.map((d, i) => <Animated.View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#64748b', transform: [{ translateY: d }] }} />)}
@@ -59,19 +60,15 @@ const StatusIcon = ({ status }: { status?: string }) => {
 // ─────────────────────────────────────────────
 export default function ChatScreen() {
   const router = useRouter();
-  
-  // 🛑 THE FIX: Pull checkSession so we can force a recovery if memory drops
   const { user, isLoading: authLoading, checkSession } = useAuthStore();
-
-  // Safely extract the ID no matter how FastAPI returned it
+  
   const userId = user?.id || user?.data?.id || user?.user_id;
-
   const [messages, setMessages]       = useState<ChatMessage[]>([]);
   const [inputText, setInputText]     = useState('');
   const [isLoading, setIsLoading]     = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [adminTyping, setAdminTyping] = useState(false);
-
+  
   const ws                = useRef<WebSocket | null>(null);
   const wsUrlRef          = useRef('');
   const flatListRef       = useRef<FlatList>(null);
@@ -121,12 +118,14 @@ export default function ChatScreen() {
 
       if (payload.type === 'message') {
         const incoming: ChatMessage = { id: payload.id, sender_type: payload.sender_type, content: payload.content, created_at: payload.created_at, status: payload.status || 'delivered', is_preset: payload.is_preset };
+        
         setMessages(prev => {
           if (incoming.sender_type === 'user') {
             const idx = prev.findIndex(m => m.pending && m.content === incoming.content);
             if (idx !== -1) { const next = [...prev]; next[idx] = incoming; return next; }
           }
           if (prev.some(m => m.id === incoming.id)) return prev;
+          
           return [...prev, incoming];
         });
         scrollToBottom();
@@ -165,7 +164,7 @@ export default function ChatScreen() {
         const Notifications = await import('expo-notifications');
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
-          const tokenData: any = await Promise.race([Notifications.getExpoPushTokenAsync(), new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000))]);
+           const tokenData: any = await Promise.race([Notifications.getExpoPushTokenAsync(), new Promise((_, rej) => setTimeout(() => rej('timeout'), 3000))]);
           await apiClient.post('/users/push-token', { token: tokenData.data });
         }
       } catch { /* silent */ }
@@ -212,6 +211,7 @@ export default function ChatScreen() {
 
     if (typingTimer.current) clearTimeout(typingTimer.current);
     isTypingRef.current = false;
+    
     sendTypingIndicator(false);
     ws.current.send(JSON.stringify({ type: 'message', content }));
   }, [inputText, scrollToBottom, sendTypingIndicator]);
@@ -226,7 +226,15 @@ export default function ChatScreen() {
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
     const isUser = item.sender_type === 'user';
-    const timeStr = item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    
+    // 🚨 THE FIX: Force the naive backend timestamp to parse as UTC before converting to Local browser time!
+    let timeStr = '';
+    if (item.created_at) {
+      const isUTC = item.created_at.includes('Z') || item.created_at.includes('+');
+      const safeDateStr = isUTC ? item.created_at : `${item.created_at}Z`;
+      timeStr = new Date(safeDateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
     return (
       <View style={[styles.messageWrapper, isUser ? styles.wrapUser : styles.wrapAdmin]}>
         {!isUser && <View style={styles.adminAvatar}><Ionicons name="headset" size={16} color="#fff" /></View>}
@@ -297,7 +305,8 @@ export default function ChatScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         <FlatList
           ref={flatListRef} data={messages} keyExtractor={(item) => item.id} renderItem={renderMessage}
-          contentContainerStyle={styles.chatList} onContentSizeChange={scrollToBottom} ListFooterComponent={renderFooter}
+          contentContainerStyle={styles.chatList} onContentSizeChange={scrollToBottom} 
+          ListFooterComponent={renderFooter}
           showsVerticalScrollIndicator={false} removeClippedSubviews={false}
         />
         <View style={styles.inputContainer}>

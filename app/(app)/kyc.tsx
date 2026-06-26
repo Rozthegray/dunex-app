@@ -43,7 +43,6 @@ export default function KYCScreen() {
     idNumber: '', 
   });
 
-  // 🚨 UPDATED: Specific Front and Back document states
   const [idFront, setIdFront] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [idBack, setIdBack] = useState<ImagePicker.ImagePickerAsset | null>(null);
 
@@ -80,44 +79,32 @@ export default function KYCScreen() {
 
   const handleSubmit = async () => {
     if (!idFront || !idBack) return Alert.alert("Required", "Both the front and back of your identity document must be uploaded.");
-
     setLoading(true);
     try {
       const formData = new FormData();
-      
-      // Append all the text fields
       Object.entries(form).forEach(([key, value]) => formData.append(key, value));
-      
-      // 🚨 CRITICAL FIX: Web vs Mobile File Upload handling
+
       if (Platform.OS === 'web') {
-        // Convert Front Image for Web
         const frontRes = await fetch(idFront.uri);
         const frontBlob = await frontRes.blob();
         formData.append('id_card', frontBlob, 'id_front.jpg');
 
-        // Convert Back Image for Web
         const backRes = await fetch(idBack.uri);
         const backBlob = await backRes.blob();
         formData.append('govt_id', backBlob, 'id_back.jpg');
       } else {
-        // Mobile Handling
         formData.append('id_card', { uri: Platform.OS === 'ios' ? idFront.uri.replace('file://', '') : idFront.uri, name: 'id_front.jpg', type: 'image/jpeg' } as any);
         formData.append('govt_id', { uri: Platform.OS === 'ios' ? idBack.uri.replace('file://', '') : idBack.uri, name: 'id_back.jpg', type: 'image/jpeg' } as any);
       }
 
-      // 🚨 REMOVED: hardcoded 'Content-Type' header so the browser auto-generates the boundary tags!
-     // 🚨 FIX: Force Axios to use multipart/form-data instead of its default JSON
       await apiClient.post('/users/kyc', formData, { 
-        headers: { 
-          'Content-Type': 'multipart/form-data' 
-        } 
+        headers: { 'Content-Type': 'multipart/form-data' } 
       });
 
       if (user) setUser({ ...user, kyc_status: 'pending' });
       Alert.alert("Documents Submitted", "Your identity matrix is under review. This usually takes 1-2 business days.");
       router.back();
     } catch (error: any) {
-      // Added detailed logging so you can see exactly what FastAPI rejects if it fails again
       console.error("KYC Error Details:", error.response?.data);
       Alert.alert("Submission Failed", error.response?.data?.detail || "Could not upload documents.");
     } finally {
@@ -125,12 +112,26 @@ export default function KYCScreen() {
     }
   };
 
+  // 🚨 THE FIX: Fully Verified Success Lock
+  if (user?.kyc_status === 'verified') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.centerBox}>
+          <Ionicons name="shield-checkmark" size={80} color="#22C55E" />
+          <Text style={styles.statusTitle}>KYC Verified</Text>
+          <Text style={styles.statusSub}>Your identity has been successfully authenticated by our compliance team. Your vault is fully unlocked.</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}><Text style={styles.backBtnText}>Return to Dashboard</Text></TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
+  // Pending Lock
   if (user?.kyc_status === 'pending') {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBox}>
-          <Ionicons name="time-outline" size={64} color="#D4AF37" />
+          <Ionicons name="time-outline" size={80} color="#D4AF37" />
           <Text style={styles.statusTitle}>Verification Pending</Text>
           <Text style={styles.statusSub}>Your documents are currently under review by our compliance team.</Text>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}><Text style={styles.backBtnText}>Return to Dashboard</Text></TouchableOpacity>
@@ -217,12 +218,12 @@ export default function KYCScreen() {
             </View>
           )}
 
-          {/* 🚨 UPDATED STEP 4: DOCUMENT UPLOAD */}
+          {/* STEP 4: DOCUMENT UPLOAD */}
           {step === 4 && (
             <View>
               <Text style={styles.sectionLabel}>Document Vault</Text>
               <Text style={styles.instructionsText}>
-                Please provide a high-resolution scan or photo of your official Government ID, Driver's License, or Passport. 
+                Please provide a high-resolution scan or photo of your official Government ID, Driver's License, or Passport.
                 Ensure all text is legible, edges are visible, and there is no glare.
               </Text>
               
@@ -312,7 +313,7 @@ export default function KYCScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#05050A' },
   container: { flex: 1, backgroundColor: '#05050A' },
-  centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   
   header: { padding: 20, paddingTop: Platform.OS === 'ios' ? 10 : 30, backgroundColor: '#12121A', borderBottomWidth: 1, borderBottomColor: '#1E1E28', marginBottom: 20 },
   title: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', letterSpacing: -0.5, marginBottom: 16 },
@@ -323,8 +324,8 @@ const styles = StyleSheet.create({
   progressInactive: { backgroundColor: '#1E1E28' },
   stepIndicator: { color: '#8E8E93', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 4 },
 
-  statusTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 16, marginBottom: 8 },
-  statusSub: { color: '#8E8E93', fontSize: 14, textAlign: 'center', marginBottom: 24 },
+  statusTitle: { color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 24, marginBottom: 12, textAlign: 'center' },
+  statusSub: { color: '#8E8E93', fontSize: 15, textAlign: 'center', marginBottom: 32, lineHeight: 22 },
 
   formCard: { backgroundColor: '#12121A', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#1E1E28' },
   sectionLabel: { color: '#D4AF37', fontSize: 13, fontWeight: '900', letterSpacing: 1.5, marginBottom: 20, textTransform: 'uppercase' },
@@ -346,8 +347,8 @@ const styles = StyleSheet.create({
   nextBtn: { flex: 2, flexDirection: 'row', gap: 8, backgroundColor: '#D4AF37', paddingVertical: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   nextBtnText: { color: '#05050A', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
   
-  backBtn: { backgroundColor: '#1E1E28', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 12 },
-  backBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  backBtn: { backgroundColor: '#1E1E28', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center' },
+  backBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 14 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#12121A', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },

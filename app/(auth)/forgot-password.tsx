@@ -35,12 +35,13 @@ export default function ForgotPasswordScreen() {
     try {
       await apiClient.post('/auth/recover-password', { email: safeEmail });
       
-      // Proceed to the code verification screen with the sanitized email
-      router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
+      // 🚨 THE FIX: Omit the invisible '(auth)' group and use a direct query string
+      router.push(`/reset-password?email=${encodeURIComponent(safeEmail)}`);
     } catch (error: any) {
       // Smart Security: Mask 404s to prevent enumeration, but catch actual network/server crashes
       if (error.response && error.response.status === 404) {
-        router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
+        // 🚨 THE FIX: Applied here as well
+        router.push(`/reset-password?email=${encodeURIComponent(safeEmail)}`);
       } else {
         triggerError(
           'NETWORK ANOMALY', 

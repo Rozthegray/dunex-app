@@ -22,10 +22,9 @@ export default function ForgotPasswordScreen() {
   };
 
   const handleReset = async () => {
-    Keyboard.dismiss(); // Clean UX transition
+    Keyboard.dismiss(); 
     const safeEmail = email.trim().toLowerCase();
 
-    // Prevent unnecessary API calls if the format is fundamentally flawed
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!safeEmail || !emailRegex.test(safeEmail)) {
       return triggerError('INVALID DIRECTIVE', 'Please provide a valid, correctly formatted communication vector.');
@@ -35,18 +34,16 @@ export default function ForgotPasswordScreen() {
     try {
       await apiClient.post('/auth/recover-password', { email: safeEmail });
       
-      // 🚨 THE FIX: Omit the invisible '(auth)' group and use a direct query string
-      router.push(`/reset-password?email=${encodeURIComponent(safeEmail)}`);
+      // 🚨 THE FIX: Using Expo Router's bulletproof object syntax with the (auth) group
+      router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
     } catch (error: any) {
-      // Smart Security: Mask 404s to prevent enumeration, but catch actual network/server crashes
       if (error.response && error.response.status === 404) {
-        // 🚨 THE FIX: Applied here as well
-        router.push(`/reset-password?email=${encodeURIComponent(safeEmail)}`);
+        // Mask 404s to prevent enumeration
+        router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
       } else {
-        triggerError(
-          'NETWORK ANOMALY', 
-          error.response?.data?.detail || 'Failed to dispatch recovery protocols. Please check your connection.'
-        );
+        // 🚨 THE FIX: Exposing the EXACT error message to the modal so we aren't guessing
+        const exactError = error.response?.data?.detail || error.message || 'Unknown network error occurred.';
+        triggerError('NETWORK ANOMALY', exactError);
       }
     } finally {
       setLoading(false);
@@ -128,7 +125,6 @@ const styles = StyleSheet.create({
   buttonText: { color: '#05050A', fontSize: 13, fontWeight: '900', letterSpacing: 1.5 },
   cancelBtn: { marginTop: 24, alignItems: 'center' },
   cancelText: { color: '#636366', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 5, 10, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalContent: { backgroundColor: '#12121A', borderWidth: 1, borderColor: '#1E1E28', borderRadius: 20, padding: 32, alignItems: 'center', width: '100%' },
   errorIconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255, 59, 48, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255, 59, 48, 0.2)' },

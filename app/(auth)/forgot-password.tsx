@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, 
-  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Modal 
+  StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, Modal, Keyboard 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,51 +16,41 @@ export default function ForgotPasswordScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorConfig, setErrorConfig] = useState({ title: '', message: '' });
 
-  // Memoized error trigger to prevent unnecessary re-renders
-  const triggerError = useCallback((title: string, message: string) => {
+  const triggerError = (title: string, message: string) => {
     setErrorConfig({ title, message });
     setShowErrorModal(true);
-  }, []);
+  };
 
-  // Memoized submit handler for optimal performance
-  const handleReset = useCallback(async () => {
-    const cleanEmail = email.trim().toLowerCase();
+  const handleReset = async () => {
+    Keyboard.dismiss(); // Clean UX transition
+    const safeEmail = email.trim().toLowerCase();
 
-    if (!cleanEmail) {
-      return triggerError('INVALID DIRECTIVE', 'Please provide a valid communication vector.');
-    }
-
-    // Optimization: Regex check prevents firing network requests for malformed emails
+    // Prevent unnecessary API calls if the format is fundamentally flawed
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return triggerError('FORMAT ERROR', 'Please enter a properly formatted email address.');
+    if (!safeEmail || !emailRegex.test(safeEmail)) {
+      return triggerError('INVALID DIRECTIVE', 'Please provide a valid, correctly formatted communication vector.');
     }
 
     setLoading(true);
-    
     try {
-      // Fire the recovery payload
-      await apiClient.post('/auth/recover-password', { email: cleanEmail });
+      await apiClient.post('/auth/recover-password', { email: safeEmail });
       
-      // Proceed to verification - ensure 'reset-password.tsx' exists inside your '(auth)' directory
-      router.push({ 
-        pathname: '/(auth)/reset-password', 
-        params: { email: cleanEmail } 
-      });
-      
-    } catch (error) {
-      console.warn('[Recovery Engine] API failure or network drop. Proceeding securely:', error);
-      
-      // Security standard: Always proceed to prevent email enumeration attacks
-      router.push({ 
-        pathname: '/(auth)/reset-password', 
-        params: { email: cleanEmail } 
-      });
-      
+      // Proceed to the code verification screen with the sanitized email
+      router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
+    } catch (error: any) {
+      // Smart Security: Mask 404s to prevent enumeration, but catch actual network/server crashes
+      if (error.response && error.response.status === 404) {
+        router.push({ pathname: '/(auth)/reset-password', params: { email: safeEmail } });
+      } else {
+        triggerError(
+          'NETWORK ANOMALY', 
+          error.response?.data?.detail || 'Failed to dispatch recovery protocols. Please check your connection.'
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, [email, router, triggerError]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -80,32 +70,21 @@ export default function ForgotPasswordScreen() {
               <Ionicons name="mail" size={16} color="#636366" style={styles.inputIcon} />
               <TextInput 
                 style={styles.input} 
-                placeholder="client@dunexo.com" 
+                placeholder="client@dunexmarkets.com" 
                 placeholderTextColor="#636366" 
                 keyboardType="email-address" 
                 autoCapitalize="none" 
-                autoCorrect={false}
                 value={email} 
                 onChangeText={setEmail} 
               />
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.button, loading && { opacity: 0.7 }]} 
-            onPress={handleReset} 
-            disabled={loading} 
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleReset} disabled={loading} activeOpacity={0.8}>
             {loading ? <ActivityIndicator color="#05050A" /> : <Text style={styles.buttonText}>REQUEST RECOVERY CODE</Text>}
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={styles.cancelBtn} 
-            disabled={loading} 
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity onPress={() => router.back()} style={styles.cancelBtn} disabled={loading} activeOpacity={0.7}>
             <Text style={styles.cancelText}>CANCEL</Text>
           </TouchableOpacity>
 
@@ -121,11 +100,7 @@ export default function ForgotPasswordScreen() {
             </View>
             <Text style={styles.modalTitle}>{errorConfig.title}</Text>
             <Text style={styles.modalText}>{errorConfig.message}</Text>
-            <TouchableOpacity 
-              style={styles.errorButton} 
-              onPress={() => setShowErrorModal(false)} 
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.errorButton} onPress={() => setShowErrorModal(false)} activeOpacity={0.8}>
               <Text style={styles.errorButtonText}>ACKNOWLEDGE</Text>
             </TouchableOpacity>
           </View>

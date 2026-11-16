@@ -1,18 +1,19 @@
 /**
  * app/(app)/_layout.tsx
- * Root layout: Includes Bottom Tab Bar + Slide-in Drawer.
+ * Root layout: Includes Bottom Tab Bar + Slide-in Drawer + Lockdown Guard.
  */
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions,
   Modal, TouchableWithoutFeedback, SafeAreaView, StatusBar,
-  ScrollView, Platform, Image
+  ScrollView, Platform, Image, ActivityIndicator, Alert
 } from 'react-native';
-import { Tabs, useRouter, usePathname } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { useAuthStore } from '../../lib/authStore';
 import { useNotifications } from '../../lib/useNotifications';
+import { apiClient } from '../../lib/apiClient';
 
 const { width: W } = Dimensions.get('window');
 
@@ -28,6 +29,91 @@ const T = {
   muted:   '#526077',
   inactive:'#3A4A62',
 };
+
+// ─── Lockdown Component ───────────────────────────────────────────────────────
+function GlobalLockdownBanner() {
+  const router = useRouter();
+  const [lockdown, setLockdown] = useState({ is_locked: false, fine_owed: 0, days_inactive: 0 });
+  const [loading, setLoading] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  const fetchLockdownState = async () => {
+    try {
+      const res = await apiClient.get('/wallet/summary');
+      if (res.data?.lockdown) {
+        setLockdown(res.data.lockdown);
+        if (res.data.lockdown.days_inactive >= 30 || res.data.lockdown.is_locked) {
+          setVisible(true);
+        } else {
+          setVisible(false);
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchLockdownState();
+  }, []);
+
+  const handleReactivate = async () => {
+    setLoading(true);
+    try {
+      await apiClient.post('/wallet/reactivate');
+      Alert.alert('Success', 'Account reactivated successfully!');
+      fetchLockdownState(); // Refresh UI
+    } catch (err: any) {
+      if (err.response?.data?.detail?.includes('Insufficient funds')) {
+        Alert.alert('Insufficient Balance', 'You need to deposit funds to pay the reactivation fine.');
+        router.push('/(app)/deposit' as any);
+      } else {
+        Alert.alert('Error', err.response?.data?.detail || 'Reactivation failed.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  if (lockdown.is_locked) {
+    return (
+      <View style={ldStyles.lockedBox}>
+        <Text style={ldStyles.title}>ACCOUNT LOCKED</Text>
+        <Text style={ldStyles.sub}>Due to 60 days of inactivity, your account is locked. Withdrawals and trading are disabled.</Text>
+        <TouchableOpacity style={ldStyles.payBtn} onPress={handleReactivate} disabled={loading}>
+          {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={ldStyles.payBtnText}>Pay ${lockdown.fine_owed.toFixed(2)} Reactivation Fine</Text>}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const daysLeft = 60 - lockdown.days_inactive;
+  return (
+    <View style={ldStyles.warningBox}>
+      <View style={{ flex: 1, paddingRight: 10 }}>
+        <Text style={ldStyles.warnTitle}>Inactivity Warning</Text>
+        <Text style={ldStyles.warnSub}>Account will lock in {daysLeft} days. Deposit to keep it active.</Text>
+      </View>
+      <TouchableOpacity style={ldStyles.depositBtn} onPress={() => router.push('/(app)/deposit' as any)}>
+        <Text style={ldStyles.depositBtnText}>Deposit</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const ldStyles = StyleSheet.create({
+  lockedBox: { backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(239, 68, 68, 0.3)' },
+  title: { color: '#EF4444', fontSize: 13, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+  sub: { color: '#FCA5A5', fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  payBtn: { backgroundColor: '#EF4444', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  payBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
+  
+  warningBox: { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(245, 158, 11, 0.3)', flexDirection: 'row', alignItems: 'center' },
+  warnTitle: { color: '#F59E0B', fontSize: 12, fontWeight: 'bold', marginBottom: 2 },
+  warnSub: { color: '#FCD34D', fontSize: 11 },
+  depositBtn: { backgroundColor: '#F59E0B', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
+  depositBtnText: { color: '#05050A', fontSize: 11, fontWeight: 'bold' },
+});
 
 // ─── SVG Tab Icons — precision line-art ───────────────────────────────────────
 function IconHome({ active }: { active: boolean }) {
@@ -155,7 +241,6 @@ function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
     </TouchableOpacity>
   );
 
-  // 🚨 Dynamic KYC Labels
   const isKycVerified = user?.kyc_status === 'verified';
   const kycLabel = isKycVerified ? 'KYC Verified' : user?.kyc_status === 'pending' ? 'KYC Pending' : 'Complete My KYC';
   const kycSubLabel = isKycVerified ? 'Identity Confirmed' : 'Identity Verification';
@@ -170,9 +255,7 @@ function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
 
       <Animated.View style={[drawerStyles.drawer, { transform: [{ translateX: slideAnim }] }]}>
         <SafeAreaView style={{ flex: 1 }}>
-          {/* Drawer header */}
           <View style={drawerStyles.header}>
-            {/* 🚨 Dynamic Avatar rendering */}
             {user?.avatar_url ? (
                <Image source={{ uri: user.avatar_url }} style={drawerStyles.avatarRing} />
             ) : (
@@ -201,7 +284,6 @@ function SideDrawer({ visible, onClose }: { visible: boolean; onClose: () => voi
             {drawerItem('Withdraw', '/(app)/withdraw')}
 
             <Text style={[drawerStyles.section, { marginTop: 20 }]}>COMPLIANCE</Text>
-            {/* 🚨 Applies the dynamic KYC logic */}
             {drawerItem(kycLabel, '/(app)/kyc', kycSubLabel)}
 
             <Text style={[drawerStyles.section, { marginTop: 20 }]}>NETWORK</Text>
@@ -256,7 +338,6 @@ export default function AppLayout() {
   useNotifications();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // 🚨 IMPERSONATION INTERCEPTOR
   useEffect(() => {
     if (Platform.OS === 'web') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -272,6 +353,10 @@ export default function AppLayout() {
   return (
     <DrawerContext.Provider value={{ openDrawer: () => setDrawerOpen(true), closeDrawer: () => setDrawerOpen(false) }}>
       <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      
+      {/* 🚨 THE GLOBAL LOCKDOWN INJECTION */}
+      <GlobalLockdownBanner />
+
       <Tabs
         tabBar={(props) => <BottomTabBar {...props} />}
         screenOptions={{
@@ -293,7 +378,7 @@ export default function AppLayout() {
         <Tabs.Screen name="market" options={{ title: 'Market' }} />
         <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
 
-        {/* Hidden screens (accessible via router.push) */}
+        {/* Hidden screens */}
         <Tabs.Screen name="deposit"         options={{ href: null, title: 'Deposit' }} />
         <Tabs.Screen name="withdraw"        options={{ href: null, title: 'Withdraw' }} />
         <Tabs.Screen name="deposit-history" options={{ href: null, title: 'History' }} />

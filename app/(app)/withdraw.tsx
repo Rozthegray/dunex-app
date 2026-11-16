@@ -17,14 +17,15 @@ export default function WithdrawScreen() {
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState('');
   
-  // Payout Routes
   const [payoutRoutes, setPayoutRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any | null>(null);
 
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(false);
+  
+  // 🚨 NEW: Lockdown State
+  const [lockdown, setLockdown] = useState({ is_locked: false, fine_owed: 0 });
 
-  // 🚨 Modal Control States
   const [modalVisible, setModalVisible] = useState(false);
   const [successRef, setSuccessRef] = useState('');
   const [kycModalVisible, setKycModalVisible] = useState(false);
@@ -37,12 +38,13 @@ export default function WithdrawScreen() {
     setShowErrorModal(true);
   };
 
-// Inside your WithdrawScreen.tsx component
-
   useEffect(() => {
-    // 🚨 FIX: Fetch Total Equity (combined wallets) instead of just the main balance
+    // Fetch Total Equity AND Lockdown state
     apiClient.get('/wallet/summary')
-      .then(res => setWalletBalance(res.data.total_equity)) 
+      .then(res => {
+        setWalletBalance(res.data.total_equity);
+        if (res.data.lockdown) setLockdown(res.data.lockdown);
+      }) 
       .catch(() => {});
       
     // Fetch saved payout routes
@@ -50,7 +52,6 @@ export default function WithdrawScreen() {
       .then(res => setPayoutRoutes(res.data))
       .catch(() => setPayoutRoutes([]));
   }, []);
-
   
   const handleNext = () => {
     if (step === 1) {
@@ -63,7 +64,6 @@ export default function WithdrawScreen() {
   };
 
   const handleWithdraw = async () => {
-    // 🚨 THE KYC INTERCEPT: Stop them right before they submit
     if (user?.kyc_status !== 'verified') {
       setKycModalVisible(true);
       return;
@@ -83,6 +83,25 @@ export default function WithdrawScreen() {
       setLoading(false);
     }
   };
+
+  // 🚨 UI GUARD: The Hard-Stop Intercept for Locked Accounts
+  if (lockdown.is_locked) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={64} color="#EF4444" style={{ marginBottom: 16 }} />
+          <Text style={styles.lockedTitle}>Withdrawals Disabled</Text>
+          <Text style={styles.lockedSub}>
+            Your account is currently in Lockdown Mode due to inactivity. 
+            To restore withdrawals, you must pay the ${lockdown.fine_owed.toFixed(2)} reactivation fine from your dashboard.
+          </Text>
+          <TouchableOpacity style={styles.modalDoneBtn} onPress={() => router.push('/(app)/')}>
+            <Text style={styles.modalDoneText}>RETURN TO DASHBOARD</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -212,7 +231,7 @@ export default function WithdrawScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🚨 KYC REQUIRED MODAL */}
+      {/* MODALS RETAINED EXACTLY AS THEY WERE */}
       <Modal visible={kycModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -231,7 +250,6 @@ export default function WithdrawScreen() {
         </View>
       </Modal>
 
-      {/* 🚨 ERROR MODAL */}
       <Modal visible={showErrorModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -245,7 +263,6 @@ export default function WithdrawScreen() {
         </View>
       </Modal>
 
-      {/* SUCCESS MODAL */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -277,6 +294,11 @@ const styles = StyleSheet.create({
   progressActive: { backgroundColor: '#D4AF37' },
   progressInactive: { backgroundColor: '#1E1E28' },
   stepIndicator: { color: '#8E8E93', fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginTop: 4 },
+
+  // 🚨 New Lockdown Styles
+  lockedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#05050A' },
+  lockedTitle: { color: '#EF4444', fontSize: 24, fontWeight: '900', marginBottom: 12, textAlign: 'center' },
+  lockedSub: { color: '#8E8E93', fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 30 },
 
   balancePill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#12121A', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#1E1E28', marginTop: 10 },
   balancePillText: { color: '#8E8E93', fontSize: 12, marginLeft: 10 },

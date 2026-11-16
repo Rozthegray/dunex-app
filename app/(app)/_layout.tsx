@@ -30,48 +30,23 @@ const T = {
   inactive:'#3A4A62',
 };
 
-// ─── Lockdown Component ───────────────────────────────────────────────────────
 function GlobalLockdownBanner() {
   const router = useRouter();
   const [lockdown, setLockdown] = useState({ is_locked: false, fine_owed: 0, days_inactive: 0 });
-  const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
 
-  const fetchLockdownState = async () => {
-    try {
-      const res = await apiClient.get('/wallet/summary');
-      if (res.data?.lockdown) {
-        setLockdown(res.data.lockdown);
-        if (res.data.lockdown.days_inactive >= 30 || res.data.lockdown.is_locked) {
-          setVisible(true);
-        } else {
-          setVisible(false);
-        }
-      }
-    } catch (e) {}
-  };
-
   useEffect(() => {
-    fetchLockdownState();
+    apiClient.get('/wallet/summary')
+      .then(res => {
+        if (res.data?.lockdown) {
+          setLockdown(res.data.lockdown);
+          if (res.data.lockdown.days_inactive >= 30 || res.data.lockdown.is_locked) {
+            setVisible(true);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
-
-  const handleReactivate = async () => {
-    setLoading(true);
-    try {
-      await apiClient.post('/wallet/reactivate');
-      Alert.alert('Success', 'Account reactivated successfully!');
-      fetchLockdownState(); // Refresh UI
-    } catch (err: any) {
-      if (err.response?.data?.detail?.includes('Insufficient funds')) {
-        Alert.alert('Insufficient Balance', 'You need to deposit funds to pay the reactivation fine.');
-        router.push('/(app)/deposit' as any);
-      } else {
-        Alert.alert('Error', err.response?.data?.detail || 'Reactivation failed.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (!visible) return null;
 
@@ -80,12 +55,29 @@ function GlobalLockdownBanner() {
       <View style={ldStyles.lockedBox}>
         <Text style={ldStyles.title}>ACCOUNT LOCKED</Text>
         <Text style={ldStyles.sub}>Due to 60 days of inactivity, your account is locked. Withdrawals and trading are disabled.</Text>
-        <TouchableOpacity style={ldStyles.payBtn} onPress={handleReactivate} disabled={loading}>
-          {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={ldStyles.payBtnText}>Pay ${lockdown.fine_owed.toFixed(2)} Reactivation Fine</Text>}
+        <TouchableOpacity 
+          style={ldStyles.payBtn} 
+          onPress={() => router.push('/(app)/deposit' as any)}
+        >
+          <Text style={ldStyles.payBtnText}>Deposit ${lockdown.fine_owed.toFixed(2)} to Reactivate</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
+  const daysLeft = 60 - lockdown.days_inactive;
+  return (
+    <View style={ldStyles.warningBox}>
+      <View style={{ flex: 1, paddingRight: 10 }}>
+        <Text style={ldStyles.warnTitle}>Inactivity Warning</Text>
+        <Text style={ldStyles.warnSub}>Account will lock in {daysLeft} days. Deposit to keep it active.</Text>
+      </View>
+      <TouchableOpacity style={ldStyles.depositBtn} onPress={() => router.push('/(app)/deposit' as any)}>
+        <Text style={ldStyles.depositBtnText}>Deposit</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
   const daysLeft = 60 - lockdown.days_inactive;
   return (

@@ -55,12 +55,12 @@ function GlobalLockdownBanner() {
       <View style={ldStyles.lockedBox}>
         <Text style={ldStyles.title}>ACCOUNT LOCKED</Text>
         <Text style={ldStyles.sub}>Due to 60 days of inactivity, your account is locked. Withdrawals and trading are disabled.</Text>
-        <TouchableOpacity 
-          style={ldStyles.payBtn} 
-          onPress={() => router.push('/(app)/deposit' as any)}
-        >
-          <Text style={ldStyles.payBtnText}>Deposit ${lockdown.fine_owed.toFixed(2)} to Reactivate</Text>
-        </TouchableOpacity>
+      <TouchableOpacity 
+  style={ldStyles.payBtn} 
+  onPress={() => router.push('/(app)/deposit' as any)}
+>
+  <Text style={ldStyles.payBtnText}>Deposit ${lockdown.fine_owed.toFixed(2)} to Reactivate</Text>
+</TouchableOpacity>
       </View>
     );
   }

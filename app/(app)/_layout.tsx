@@ -55,29 +55,15 @@ function GlobalLockdownBanner() {
       <View style={ldStyles.lockedBox}>
         <Text style={ldStyles.title}>ACCOUNT LOCKED</Text>
         <Text style={ldStyles.sub}>Due to 60 days of inactivity, your account is locked. Withdrawals and trading are disabled.</Text>
-      <TouchableOpacity 
-  style={ldStyles.payBtn} 
-  onPress={() => router.push('/(app)/deposit' as any)}
->
-  <Text style={ldStyles.payBtnText}>Deposit ${lockdown.fine_owed.toFixed(2)} to Reactivate</Text>
-</TouchableOpacity>
+        <TouchableOpacity 
+          style={ldStyles.payBtn} 
+          onPress={() => router.push('/(app)/deposit' as any)}
+        >
+          <Text style={ldStyles.payBtnText}>Deposit ${lockdown.fine_owed.toFixed(2)} to Reactivate</Text>
+        </TouchableOpacity>
       </View>
     );
   }
-
-  const daysLeft = 60 - lockdown.days_inactive;
-  return (
-    <View style={ldStyles.warningBox}>
-      <View style={{ flex: 1, paddingRight: 10 }}>
-        <Text style={ldStyles.warnTitle}>Inactivity Warning</Text>
-        <Text style={ldStyles.warnSub}>Account will lock in {daysLeft} days. Deposit to keep it active.</Text>
-      </View>
-      <TouchableOpacity style={ldStyles.depositBtn} onPress={() => router.push('/(app)/deposit' as any)}>
-        <Text style={ldStyles.depositBtnText}>Deposit</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
   const daysLeft = 60 - lockdown.days_inactive;
   return (
